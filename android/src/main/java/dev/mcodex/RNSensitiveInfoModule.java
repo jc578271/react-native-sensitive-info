@@ -181,11 +181,8 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     public void getItem(String key, ReadableMap options, Promise pm) {
 
         String name = sharedPreferences(options);
-        String masterBundle = masterAppBundle(options);
 
-        String _value = prefs(name).getString(key, null);
-        String _masterValue = masterPrefs(masterBundle, name).getString(key, null);
-        String value = _value != null ? _value : _masterValue;
+        String value = prefs(name).getString(key, null);
 
         if (value != null && options.hasKey("touchID") && options.getBoolean("touchID")) {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
@@ -281,24 +278,11 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         return getReactApplicationContext().getSharedPreferences(name, Context.MODE_PRIVATE);
     }
 
-    private SharedPreferences masterPrefs(String masterBundle, String name) {
-        return createPackageContext(masterBundle, 0).getSharedPreferences(name, Context.MODE_PRIVATE);
-    }
-
     @NonNull
     private String sharedPreferences(ReadableMap options) {
         String name = options.hasKey("sharedPreferencesName") ? options.getString("sharedPreferencesName") : "shared_preferences";
         if (name == null) {
             name = "shared_preferences";
-        }
-        return name;
-    }
-
-    @NonNull
-    private String masterAppBundle(ReadableMap options) {
-        String name = options.hasKey("masterAppBundle") ? options.getString("masterAppBundle") : "masterAppBundle";
-        if (name == null) {
-            name = "masterAppBundle";
         }
         return name;
     }
