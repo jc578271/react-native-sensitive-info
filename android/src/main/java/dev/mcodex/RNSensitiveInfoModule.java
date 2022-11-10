@@ -181,7 +181,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     public void getItem(String key, ReadableMap options, Promise pm) {
 
         String name = sharedPreferences(options);
-        String masterBundle = masterAppBundle(options)
+        String masterBundle = masterAppBundle(options);
 
         String _value = prefs(name).getString(key, null);
         String _masterValue = masterPrefs(masterBundle, name).getString(key, null);
