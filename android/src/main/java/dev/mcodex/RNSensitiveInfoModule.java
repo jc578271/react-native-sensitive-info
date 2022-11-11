@@ -1,6 +1,7 @@
 package dev.mcodex.RNSensitiveInfo;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.fingerprint.FingerprintManager;
@@ -34,6 +35,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.math.BigInteger;
+import java.net.URI;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyPairGenerator;
@@ -58,6 +60,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.security.auth.x500.X500Principal;
 
+import dev.mcodex.RNCursorLoader;
+import dev.mcodex.RNProvider;
 import dev.mcodex.RNSensitiveInfo.utils.AppConstants;
 
 public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
@@ -182,7 +186,14 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         String name = sharedPreferences(options);
 
-        String value = prefs(name).getString(key, null);
+        String value;
+
+        if (options.hasKey("contentURI")) {
+            RNCursorLoader cursorLoader = new RNCursorLoader(getReactApplicationContext(), getContentURI(options));
+            value = cursorLoader.values.get(key);
+        } else {
+            value = prefs(name).getString(key, null);
+        }
 
         if (value != null && options.hasKey("touchID") && options.getBoolean("touchID")) {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
@@ -221,6 +232,14 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null);
         } else {
             try {
+                if (options.hasKey("contentURI")) {
+                    String contentURI = getContentURI(options);
+                    RNProvider rnProvider = new RNProvider(contentURI);
+                    ContentValues contentValues = new ContentValues();
+                    contentValues.put(RNProvider.name, key);
+                    getReactApplicationContext().getContentResolver().insert(rnProvider.CONTENT_URI, encrypt(value));
+                }
+
                 putExtra(key, encrypt(value), prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
@@ -242,6 +261,11 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         if(!wasRemoved){
             pm.reject(new Exception("Could not remove " + key + " from Shared Preferences"));
         } else {
+            if (options.hasKey("contentURI")) {
+                String contentURI = getContentURI(options);
+                RNProvider rnProvider = new RNProvider(contentURI);
+                getReactApplicationContext().getContentResolver().delete(rnProvider.CONTENT_URI, RNProvider.id+"="+key, null);
+            }
             pm.resolve(null);
         }
     }
@@ -283,6 +307,15 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         String name = options.hasKey("sharedPreferencesName") ? options.getString("sharedPreferencesName") : "shared_preferences";
         if (name == null) {
             name = "shared_preferences";
+        }
+        return name;
+    }
+
+    @NonNull
+    private String getContentURI(ReadableMap options) {
+        String name = options.hasKey("contentURI") ? options.getString("contentURI") : "contentURI";
+        if (name == null) {
+            name = "contentURI";
         }
         return name;
     }

@@ -35,7 +35,7 @@ export interface RNSensitiveInfoOptions {
   kSecAttrSynchronizable?: boolean;
   keychainService?: string;
   accessGroup?: string;
-  masterAppBundle?: string;
+  contentURI?: string;
   sharedPreferencesName?: string;
   touchID?: boolean;
   showModal?: boolean;
