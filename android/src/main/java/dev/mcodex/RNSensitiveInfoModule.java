@@ -232,24 +232,28 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null);
         } else {
             try {
-                if (options.hasKey("contentURI")) {
-                    String contentURI = getContentURI(options);
-                    RNProvider rnProvider = new RNProvider(contentURI);
-                    ContentValues contentValues = new ContentValues();
-                    contentValues.put(RNProvider.name, encrypt(value));
-                    contentValues.put(RNProvider.id, key);
-                    if (rnProvider.isHasKey(key)) {
-                        getReactApplicationContext().getContentResolver().update(rnProvider.CONTENT_URI, contentValues, RNProvider.id+ " = ?", new String[]{key});
-                    } else {
-                        getReactApplicationContext().getContentResolver().insert(rnProvider.CONTENT_URI, contentValues);
-                    }
-                }
+                _updateDb(key, value, options);
 
                 putExtra(key, encrypt(value), prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
                 e.printStackTrace();
                 pm.reject(e);
+            }
+        }
+    }
+
+    private void _updateDb(String key, String value, ReadableMap options) throws Exception {
+        if (options.hasKey("contentURI")) {
+            String contentURI = getContentURI(options);
+            RNProvider rnProvider = new RNProvider(contentURI);
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(RNProvider.name, encrypt(value));
+            contentValues.put(RNProvider.id, key);
+            if (rnProvider.isHasKey(key)) {
+                getReactApplicationContext().getContentResolver().update(rnProvider.CONTENT_URI, contentValues, RNProvider.id+ " = ?", new String[]{key});
+            } else {
+                getReactApplicationContext().getContentResolver().insert(rnProvider.CONTENT_URI, contentValues);
             }
         }
     }
@@ -269,7 +273,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             if (options.hasKey("contentURI")) {
                 String contentURI = getContentURI(options);
                 RNProvider rnProvider = new RNProvider(contentURI);
-                getReactApplicationContext().getContentResolver().delete(rnProvider.CONTENT_URI, RNProvider.id+"="+key, null);
+                getReactApplicationContext().getContentResolver().delete(rnProvider.CONTENT_URI, RNProvider.id + " = ?", new String[]{key});
             }
             pm.resolve(null);
         }
@@ -450,7 +454,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         keyGenerator.generateKey();
     }
 
-    private void putExtraWithAES(final String key, final String value, final SharedPreferences mSharedPreferences, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher) {
+    private void putExtraWithAES(final String key, final String value, final SharedPreferences mSharedPreferences, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher, final ReadableMap options) {
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && hasSetupBiometricCredential()) {
             try {
@@ -472,7 +476,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                 @Override
                                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        putExtraWithAES(key, value, mSharedPreferences, true, strings, pm, result.getCryptoObject().getCipher());
+                                        putExtraWithAES(key, value, mSharedPreferences, true, strings, pm, result.getCryptoObject().getCipher(), options);
                                     }
                                 }
 
@@ -518,7 +522,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                         public void onAuthenticationSucceeded(FingerprintManager.AuthenticationResult result) {
                                             super.onAuthenticationSucceeded(result);
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                putExtraWithAES(key, value, mSharedPreferences, false, strings, pm, result.getCryptoObject().getCipher());
+                                                putExtraWithAES(key, value, mSharedPreferences, false, strings, pm, result.getCryptoObject().getCipher(), options);
                                             }
                                         }
                                     }, null);
@@ -536,6 +540,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 String result = base64IV + DELIMITER + base64Cipher;
 
                 try {
+                    _updateDb(key, result, options);
                     putExtra(key, result, mSharedPreferences);
                     pm.resolve(value);
                 } catch(Exception e){

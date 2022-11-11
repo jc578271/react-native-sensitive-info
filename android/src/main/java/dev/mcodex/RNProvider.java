@@ -114,7 +114,7 @@ public class RNProvider extends ContentProvider {
     }
 
     public boolean isHasKey(@Nullable String key) {
-        @SuppressLint("Recycle") Cursor cursor = db.query(TABLE_NAME, null, id+"="+key, null, null, null, null);
+        @SuppressLint("Recycle") Cursor cursor = db.query(TABLE_NAME, null, id + " = ?", new String[]{key}, null, null, null);
         return cursor.getCount() > 0;
     }
 
