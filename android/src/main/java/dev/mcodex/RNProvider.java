@@ -1,5 +1,6 @@
 package dev.mcodex;
 
+import android.annotation.SuppressLint;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -90,12 +91,10 @@ public class RNProvider extends ContentProvider {
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
         int count = 0;
-        switch (uriMatcher.match(uri)) {
-            case uriCode:
-                count = db.delete(TABLE_NAME, selection, selectionArgs);
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown URI " + uri);
+        if (uriMatcher.match(uri) == uriCode) {
+            count = db.delete(TABLE_NAME, selection, selectionArgs);
+        } else {
+            throw new IllegalArgumentException("Unknown URI " + uri);
         }
         getContext().getContentResolver().notifyChange(uri, null);
         return count;
@@ -104,15 +103,19 @@ public class RNProvider extends ContentProvider {
     @Override
     public int update(@NonNull Uri uri, @Nullable ContentValues values, @Nullable String selection, @Nullable String[] selectionArgs) {
         int count = 0;
-        switch (uriMatcher.match(uri)) {
-            case uriCode:
-                count = db.update(TABLE_NAME, values, selection, selectionArgs);
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown URI " + uri);
+        if (uriMatcher.match(uri) == uriCode) {
+            count = db.update(TABLE_NAME, values, selection, selectionArgs);
+        } else {
+            throw new IllegalArgumentException("Unknown URI " + uri);
         }
         getContext().getContentResolver().notifyChange(uri, null);
         return count;
+
+    }
+
+    public boolean isHasKey(@Nullable String key) {
+        @SuppressLint("Recycle") Cursor cursor = db.query(TABLE_NAME, null, id+"="+key, null, null, null, null);
+        return cursor.getCount() > 0;
     }
 
     private SQLiteDatabase db;
