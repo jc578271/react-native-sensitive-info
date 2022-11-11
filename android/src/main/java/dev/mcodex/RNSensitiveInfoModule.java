@@ -239,7 +239,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                     contentValues.put(RNProvider.name, encrypt(value));
                     contentValues.put(RNProvider.id, key);
                     if (rnProvider.isHasKey(key)) {
-                        getReactApplicationContext().getContentResolver().update(rnProvider.CONTENT_URI, contentValues, RNProvider.id+ "= ?", new String[]{key});
+                        getReactApplicationContext().getContentResolver().update(rnProvider.CONTENT_URI, contentValues, RNProvider.id+ " = ?", new String[]{key});
                     } else {
                         getReactApplicationContext().getContentResolver().insert(rnProvider.CONTENT_URI, contentValues);
                     }
