@@ -229,7 +229,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
             HashMap strings = options.hasKey("strings") ? options.getMap("strings").toHashMap() : new HashMap();
 
-            putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null);
+            putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null, options);
         } else {
             try {
                 _updateDb(key, value, options);
