@@ -20,7 +20,7 @@ public class RNCursorLoader implements LoaderManager.LoaderCallbacks<Cursor> {
 
     public HashMap<String, String> values = new HashMap<String, String>();
 
-    RNCursorLoader(Context _rnContext, String providerName) {
+    public RNCursorLoader(Context _rnContext, String providerName) {
         ContextURI = "content://" + providerName + "/cte";
         rnContext = _rnContext;
     }
