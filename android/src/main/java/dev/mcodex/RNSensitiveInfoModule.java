@@ -1,11 +1,13 @@
 package dev.mcodex.RNSensitiveInfo;
 
 import android.app.Activity;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.hardware.fingerprint.FingerprintManager;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
@@ -15,10 +17,14 @@ import android.util.Base64;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.biometric.BiometricConstants;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.fragment.app.FragmentActivity;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.CursorLoader;
+import androidx.loader.content.Loader;
 
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -35,7 +41,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.math.BigInteger;
-import java.net.URI;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyPairGenerator;
@@ -60,8 +65,6 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.security.auth.x500.X500Principal;
 
-import dev.mcodex.RNCursorLoader;
-import dev.mcodex.RNProvider;
 import dev.mcodex.RNSensitiveInfo.utils.AppConstants;
 
 public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
@@ -189,7 +192,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         String value;
 
         if (options.hasKey("contentURI")) {
-            RNCursorLoader cursorLoader = new RNCursorLoader(getReactApplicationContext(), getContentURI(options));
+            RNCursorLoader cursorLoader = new RNCursorLoader(getContentURI(options));
             value = cursorLoader.values.get(key);
         } else {
             value = prefs(name).getString(key, null);
@@ -229,31 +232,14 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
             HashMap strings = options.hasKey("strings") ? options.getMap("strings").toHashMap() : new HashMap();
 
-            putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null, options);
+            putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null);
         } else {
             try {
-                _updateDb(key, value, options);
-
                 putExtra(key, encrypt(value), prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
                 e.printStackTrace();
                 pm.reject(e);
-            }
-        }
-    }
-
-    private void _updateDb(String key, String value, ReadableMap options) throws Exception {
-        if (options.hasKey("contentURI")) {
-            String contentURI = getContentURI(options);
-            RNProvider rnProvider = new RNProvider(contentURI);
-            ContentValues contentValues = new ContentValues();
-            contentValues.put(RNProvider.name, encrypt(value));
-            contentValues.put(RNProvider.id, key);
-            if (rnProvider.isHasKey(key)) {
-                getReactApplicationContext().getContentResolver().update(rnProvider.CONTENT_URI, contentValues, RNProvider.id+ " = ?", new String[]{key});
-            } else {
-                getReactApplicationContext().getContentResolver().insert(rnProvider.CONTENT_URI, contentValues);
             }
         }
     }
@@ -270,11 +256,6 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         if(!wasRemoved){
             pm.reject(new Exception("Could not remove " + key + " from Shared Preferences"));
         } else {
-            if (options.hasKey("contentURI")) {
-                String contentURI = getContentURI(options);
-                RNProvider rnProvider = new RNProvider(contentURI);
-                getReactApplicationContext().getContentResolver().delete(rnProvider.CONTENT_URI, RNProvider.id + " = ?", new String[]{key});
-            }
             pm.resolve(null);
         }
     }
@@ -320,16 +301,6 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         return name;
     }
 
-    @NonNull
-    private String getContentURI(ReadableMap options) {
-        String name = options.hasKey("contentURI") ? options.getString("contentURI") : "contentURI";
-        if (name == null) {
-            name = "contentURI";
-        }
-        return name;
-    }
-
-
     private void putExtra(String key, String value, SharedPreferences mSharedPreferences) throws Exception {
         SharedPreferences.Editor editor = mSharedPreferences.edit();
         boolean wasWritten = editor.putString(key, value).commit();
@@ -360,12 +331,12 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                     Calendar notAfter = Calendar.getInstance();
                     notAfter.add(Calendar.YEAR, 10);
                     KeyPairGeneratorSpec spec = new KeyPairGeneratorSpec.Builder(getReactApplicationContext())
-                    .setAlias(KEY_ALIAS)
-                    .setSubject(new X500Principal("CN=" + KEY_ALIAS))
-                    .setSerialNumber(BigInteger.valueOf(1337))
-                    .setStartDate(notBefore.getTime())
-                    .setEndDate(notAfter.getTime())
-                    .build();
+                            .setAlias(KEY_ALIAS)
+                            .setSubject(new X500Principal("CN=" + KEY_ALIAS))
+                            .setSerialNumber(BigInteger.valueOf(1337))
+                            .setStartDate(notBefore.getTime())
+                            .setEndDate(notAfter.getTime())
+                            .build();
                     KeyPairGenerator kpGenerator = KeyPairGenerator.getInstance("RSA", ANDROID_KEYSTORE_PROVIDER);
                     kpGenerator.initialize(spec);
                     kpGenerator.generateKeyPair();
@@ -454,7 +425,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         keyGenerator.generateKey();
     }
 
-    private void putExtraWithAES(final String key, final String value, final SharedPreferences mSharedPreferences, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher, final ReadableMap options) {
+    private void putExtraWithAES(final String key, final String value, final SharedPreferences mSharedPreferences, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher) {
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && hasSetupBiometricCredential()) {
             try {
@@ -476,7 +447,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                 @Override
                                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        putExtraWithAES(key, value, mSharedPreferences, true, strings, pm, result.getCryptoObject().getCipher(), options);
+                                        putExtraWithAES(key, value, mSharedPreferences, true, strings, pm, result.getCryptoObject().getCipher());
                                     }
                                 }
 
@@ -522,7 +493,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                         public void onAuthenticationSucceeded(FingerprintManager.AuthenticationResult result) {
                                             super.onAuthenticationSucceeded(result);
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                putExtraWithAES(key, value, mSharedPreferences, false, strings, pm, result.getCryptoObject().getCipher(), options);
+                                                putExtraWithAES(key, value, mSharedPreferences, false, strings, pm, result.getCryptoObject().getCipher());
                                             }
                                         }
                                     }, null);
@@ -540,7 +511,6 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 String result = base64IV + DELIMITER + base64Cipher;
 
                 try {
-                    _updateDb(key, result, options);
                     putExtra(key, result, mSharedPreferences);
                     pm.resolve(value);
                 } catch(Exception e){
@@ -684,7 +654,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 } else {
                     pm.reject(e);
                 }
-             } catch (BadPaddingException e){
+            } catch (BadPaddingException e){
                 Log.d("RNSensitiveInfo", "Biometric key invalid");
                 pm.reject(AppConstants.E_BIOMETRICS_INVALIDATED, e.getCause().getMessage());
             } catch (SecurityException e) {
@@ -766,5 +736,49 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         byte[] decodedBytes = outputStream.toByteArray();
         return new String(decodedBytes);
+    }
+
+    @NonNull
+    private String getContentURI(ReadableMap options) {
+        String name = options.hasKey("contentURI") ? options.getString("contentURI") : "contentURI";
+        if (name == null) {
+            name = "contentURI";
+        }
+        return name;
+    }
+
+    public static class RNCursorLoader implements LoaderManager.LoaderCallbacks<Cursor> {
+        CursorLoader cursorLoader;
+        String ContextURI;
+
+        public HashMap<String, String> values = new HashMap<String, String>();
+
+        public RNCursorLoader(String providerName) {
+            ContextURI = "content://" + providerName + "/cte";
+        }
+
+        @NonNull
+        @Override
+        public Loader<Cursor> onCreateLoader(int i, @Nullable Bundle bundle) {
+            cursorLoader = new CursorLoader(getReactApplicationContext(), Uri.parse(ContextURI), null, null, null, null);
+            return cursorLoader;
+        }
+
+        @Override
+        public void onLoadFinished(@NonNull Loader<Cursor> loader, Cursor cursor) {
+            cursor.moveToFirst();
+
+            while (!cursor.isAfterLast()) {
+                String key = cursor.getString(cursor.getColumnIndex("id"));
+                String value = cursor.getString(cursor.getColumnIndex("name"));
+                values.put(key, value);
+                cursor.moveToNext();
+            }
+        }
+
+        @Override
+        public void onLoaderReset(@NonNull Loader<Cursor> loader) {
+
+        }
     }
 }
