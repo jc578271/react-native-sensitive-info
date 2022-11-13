@@ -192,8 +192,8 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         String value;
 
         if (options.hasKey("contentURI")) {
-            RNCursorLoader cursorLoader = new RNCursorLoader(getContentURI(options));
-            value = cursorLoader.values.get(key);
+            value = rnCursorMap(getContentURI(options)).get(key);
+            Log.d("RNSensitive cursorValue", value);
         } else {
             value = prefs(name).getString(key, null);
         }
@@ -747,38 +747,23 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         return name;
     }
 
-    public static class RNCursorLoader implements LoaderManager.LoaderCallbacks<Cursor> {
-        CursorLoader cursorLoader;
-        String ContextURI;
+    private Map<String, String> rnCursorMap (String contentUri){
+        String contextURI = "content://" + contentUri + "/cte";
 
-        public HashMap<String, String> values = new HashMap<String, String>();
+        Map<String,String> map = new HashMap<String,String>();
 
-        public RNCursorLoader(String providerName) {
-            ContextURI = "content://" + providerName + "/cte";
+        Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse("content://"+contextURI+"/cte"), null, null, null, null);
+        cursor.moveToFirst();
+        
+        while (!cursor.isAfterLast()) {
+            String keyC = cursor.getString(cursor.getColumnIndex("key"));
+            String valueC = cursor.getString(cursor.getColumnIndex("value"));
+            Log.d("RNSensitive cursorKey", keyC);
+            Log.d("RNSensitive cursorValue", valueC);
+            map.put(keyC, valueC);
+            cursor.moveToNext();
         }
-
-        @NonNull
-        @Override
-        public Loader<Cursor> onCreateLoader(int i, @Nullable Bundle bundle) {
-            cursorLoader = new CursorLoader(getReactApplicationContext(), Uri.parse(ContextURI), null, null, null, null);
-            return cursorLoader;
-        }
-
-        @Override
-        public void onLoadFinished(@NonNull Loader<Cursor> loader, Cursor cursor) {
-            cursor.moveToFirst();
-
-            while (!cursor.isAfterLast()) {
-                String key = cursor.getString(cursor.getColumnIndex("id"));
-                String value = cursor.getString(cursor.getColumnIndex("name"));
-                values.put(key, value);
-                cursor.moveToNext();
-            }
-        }
-
-        @Override
-        public void onLoaderReset(@NonNull Loader<Cursor> loader) {
-
-        }
+        
+        return map;
     }
 }
