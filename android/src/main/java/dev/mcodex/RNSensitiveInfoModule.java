@@ -185,15 +185,12 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         String name = sharedPreferences(options);
 
-        String value;
+        String value = rnCursorMap(options).get(key) != null
+          ? rnCursorMap(options).get(key)
+          : prefs(name).getString(key, null);
 
-        if (options.hasKey("providerName")) {
-            value = rnCursorMap(getContentURI(options)).get(key);
-            if (value != null) {
-                Log.d("RNSensitive cursorValue", value);
-            }
-        } else {
-            value = prefs(name).getString(key, null);
+        if (value != null) {
+            Log.d("RNSensitive cursorValue", value);
         }
 
         if (value != null && options.hasKey("touchID") && options.getBoolean("touchID")) {
@@ -216,7 +213,13 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     public void hasItem(String key, ReadableMap options, Promise pm) {
         String name = sharedPreferences(options);
 
-        String value = prefs(name).getString(key, null);
+        String value = rnCursorMap(options).get(key) != null
+          ? rnCursorMap(options).get(key)
+          : prefs(name).getString(key, null);
+
+        if (value != null) {
+            Log.d("RNSensitive cursorValue", value);
+        }
 
         pm.resolve(value != null ? true : false);
     }
@@ -233,7 +236,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null, options);
         } else {
             try {
-                _updateDb(key, value, options);
+                _updateDb(key, encrypt(value), options);
                 putExtra(key, encrypt(value), prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
@@ -255,7 +258,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         if(!wasRemoved){
             pm.reject(new Exception("Could not remove " + key + " from Shared Preferences"));
         } else {
-          _deleteDB(key, options);
+            _deleteDB(key, options);
             pm.resolve(null);
         }
     }
@@ -270,6 +273,16 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         WritableMap resultData = new WritableNativeMap();
 
         for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
+            String value = entry.getValue().toString();
+            try {
+                value = decrypt(value);
+            } catch (Exception e) {
+                Log.d("RNSensitiveInfo", Log.getStackTraceString(e));
+            }
+            resultData.putString(entry.getKey(), value);
+        }
+
+        for (Map.Entry<String, ?> entry : rnCursorMap(options).entrySet()) {
             String value = entry.getValue().toString();
             try {
                 value = decrypt(value);
@@ -511,7 +524,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 String result = base64IV + DELIMITER + base64Cipher;
 
                 try {
-                    _updateDb(key, value, options);
+                    _updateDb(key, result, options);
                     putExtra(key, result, mSharedPreferences);
                     pm.resolve(value);
                 } catch(Exception e){
@@ -777,7 +790,6 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
       }
     }
 
-
     @NonNull
     private String getContentURI(ReadableMap options) {
         String name = options.hasKey("providerName") ? options.getString("providerName") : "providerName";
@@ -787,21 +799,21 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         return "content://" + name + "/cte";
     }
 
-    private Map<String, String> rnCursorMap (String providerName){
-        String contextURI = "content://" + providerName + "/cte";
-
+    private Map<String, String> rnCursorMap (ReadableMap options){
         Map<String,String> map = new HashMap<String,String>();
-
-        Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
-        if (cursor != null) {
-            cursor.moveToFirst();
-            while (!cursor.isAfterLast()) {
-                String keyC = cursor.getString(cursor.getColumnIndex("key"));
-                String valueC = cursor.getString(cursor.getColumnIndex("value"));
-                Log.d("RNSensitive cursorKey", keyC);
-                Log.d("RNSensitive cursorValue", valueC);
-                map.put(keyC, valueC);
-                cursor.moveToNext();
+        if (options.hasKey("providerName")) {
+            String contextURI = getContentURI(options);
+            Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
+            if (cursor != null) {
+                cursor.moveToFirst();
+                while (!cursor.isAfterLast()) {
+                    String keyC = cursor.getString(cursor.getColumnIndex("key"));
+                    String valueC = cursor.getString(cursor.getColumnIndex("value"));
+                    Log.d("RNSensitive cursorKey", keyC);
+                    Log.d("RNSensitive cursorValue", valueC);
+                    map.put(keyC, valueC);
+                    cursor.moveToNext();
+                }
             }
         }
         return map;
