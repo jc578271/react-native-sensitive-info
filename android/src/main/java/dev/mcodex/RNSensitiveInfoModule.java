@@ -743,7 +743,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     private void _deleteDB(String key, ReadableMap options) {
         if (options.hasKey("providerName")) {
           getCurrentActivity().getContentResolver()
-            .delete(getContentURI(options),
+            .delete(Uri.parse(getContentURI(options)),
               "key = ?",
               new String[]{key});
         }
@@ -756,7 +756,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         contentValues.put("key", key);
         boolean isHasKey = getCurrentActivity()
           .getContentResolver()
-          .query(getContentURI(options),
+          .query(Uri.parse(getContentURI(options)),
             null,
             "key = ?",
             new String[]{key},
@@ -765,12 +765,14 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         if (isHasKey) {
           getCurrentActivity()
             .getContentResolver()
-            .update(getContentURI(options),
+            .update(Uri.parse(getContentURI(options)),
               contentValues,
               "key = ?",
               new String[]{key});
         } else {
-          getCurrentActivity().getContentResolver().insert(getContentURI(options), contentValues);
+          getCurrentActivity()
+            .getContentResolver()
+            .insert(Uri.parse(getContentURI(options)), contentValues);
         }
       }
     }
