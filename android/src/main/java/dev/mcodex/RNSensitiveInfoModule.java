@@ -193,7 +193,9 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         if (options.hasKey("contentURI")) {
             value = rnCursorMap(getContentURI(options)).get(key);
-            Log.d("RNSensitive cursorValue", value);
+            if (value != null) {
+                Log.d("RNSensitive cursorValue", value);
+            }
         } else {
             value = prefs(name).getString(key, null);
         }
