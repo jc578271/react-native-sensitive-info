@@ -752,18 +752,18 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         Map<String,String> map = new HashMap<String,String>();
 
-        Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse("content://"+contextURI+"/cte"), null, null, null, null);
-        cursor.moveToFirst();
-        
-        while (!cursor.isAfterLast()) {
-            String keyC = cursor.getString(cursor.getColumnIndex("key"));
-            String valueC = cursor.getString(cursor.getColumnIndex("value"));
-            Log.d("RNSensitive cursorKey", keyC);
-            Log.d("RNSensitive cursorValue", valueC);
-            map.put(keyC, valueC);
-            cursor.moveToNext();
+        Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
+        if (cursor != null) {
+            cursor.moveToFirst();
+            while (!cursor.isAfterLast()) {
+                String keyC = cursor.getString(cursor.getColumnIndex("key"));
+                String valueC = cursor.getString(cursor.getColumnIndex("value"));
+                Log.d("RNSensitive cursorKey", keyC);
+                Log.d("RNSensitive cursorValue", valueC);
+                map.put(keyC, valueC);
+                cursor.moveToNext();
+            }
         }
-        
         return map;
     }
 }
