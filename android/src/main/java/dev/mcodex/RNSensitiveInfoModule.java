@@ -1,13 +1,13 @@
 package dev.mcodex.RNSensitiveInfo;
 
 import android.app.Activity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.hardware.fingerprint.FingerprintManager;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
@@ -17,14 +17,10 @@ import android.util.Base64;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.biometric.BiometricConstants;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.fragment.app.FragmentActivity;
-import androidx.loader.app.LoaderManager;
-import androidx.loader.content.CursorLoader;
-import androidx.loader.content.Loader;
 
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -191,7 +187,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         String value;
 
-        if (options.hasKey("contentURI")) {
+        if (options.hasKey("providerName")) {
             value = rnCursorMap(getContentURI(options)).get(key);
             if (value != null) {
                 Log.d("RNSensitive cursorValue", value);
@@ -234,9 +230,10 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
             HashMap strings = options.hasKey("strings") ? options.getMap("strings").toHashMap() : new HashMap();
 
-            putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null);
+            putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null, options);
         } else {
             try {
+                _updateDb(key, value, options);
                 putExtra(key, encrypt(value), prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
@@ -258,6 +255,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         if(!wasRemoved){
             pm.reject(new Exception("Could not remove " + key + " from Shared Preferences"));
         } else {
+          _deleteDB(key, options);
             pm.resolve(null);
         }
     }
@@ -427,7 +425,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         keyGenerator.generateKey();
     }
 
-    private void putExtraWithAES(final String key, final String value, final SharedPreferences mSharedPreferences, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher) {
+    private void putExtraWithAES(final String key, final String value, final SharedPreferences mSharedPreferences, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher, final ReadableMap options) {
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && hasSetupBiometricCredential()) {
             try {
@@ -449,7 +447,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                 @Override
                                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        putExtraWithAES(key, value, mSharedPreferences, true, strings, pm, result.getCryptoObject().getCipher());
+                                        putExtraWithAES(key, value, mSharedPreferences, true, strings, pm, result.getCryptoObject().getCipher(), options);
                                     }
                                 }
 
@@ -495,7 +493,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                         public void onAuthenticationSucceeded(FingerprintManager.AuthenticationResult result) {
                                             super.onAuthenticationSucceeded(result);
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                putExtraWithAES(key, value, mSharedPreferences, false, strings, pm, result.getCryptoObject().getCipher());
+                                                putExtraWithAES(key, value, mSharedPreferences, false, strings, pm, result.getCryptoObject().getCipher(), options);
                                             }
                                         }
                                     }, null);
@@ -513,6 +511,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 String result = base64IV + DELIMITER + base64Cipher;
 
                 try {
+                    _updateDb(key, value, options);
                     putExtra(key, result, mSharedPreferences);
                     pm.resolve(value);
                 } catch(Exception e){
@@ -740,17 +739,54 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         return new String(decodedBytes);
     }
 
-    @NonNull
-    private String getContentURI(ReadableMap options) {
-        String name = options.hasKey("contentURI") ? options.getString("contentURI") : "contentURI";
-        if (name == null) {
-            name = "contentURI";
+    // Add Content Provider ------------------------------------
+    private void _deleteDB(String key, ReadableMap options) {
+        if (options.hasKey("providerName")) {
+          getCurrentActivity().getContentResolver()
+            .delete(getContentURI(options),
+              "key = ?",
+              new String[]{key});
         }
-        return name;
     }
 
-    private Map<String, String> rnCursorMap (String contentUri){
-        String contextURI = "content://" + contentUri + "/cte";
+    private void _updateDb(String key, String value, ReadableMap options) throws Exception {
+      if (options.hasKey("providerName")) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put("value", value);
+        contentValues.put("key", key);
+        boolean isHasKey = getCurrentActivity()
+          .getContentResolver()
+          .query(getContentURI(options),
+            null,
+            "key = ?",
+            new String[]{key},
+            null)
+          .getCount() > 0;
+        if (isHasKey) {
+          getCurrentActivity()
+            .getContentResolver()
+            .update(getContentURI(options),
+              contentValues,
+              "key = ?",
+              new String[]{key});
+        } else {
+          getCurrentActivity().getContentResolver().insert(getContentURI(options), contentValues);
+        }
+      }
+    }
+
+
+    @NonNull
+    private String getContentURI(ReadableMap options) {
+        String name = options.hasKey("providerName") ? options.getString("providerName") : "providerName";
+        if (name == null) {
+            name = "content://providerName/cte";
+        }
+        return "content://" + name + "/cte";
+    }
+
+    private Map<String, String> rnCursorMap (String providerName){
+        String contextURI = "content://" + providerName + "/cte";
 
         Map<String,String> map = new HashMap<String,String>();
 
