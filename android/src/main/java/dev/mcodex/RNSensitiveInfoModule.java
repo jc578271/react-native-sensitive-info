@@ -754,7 +754,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
     // Add Content Provider ------------------------------------
     private void _deleteDB(String key, ReadableMap options) {
-        if (options.hasKey("providerName")) {
+        if (getContentURI(options) != null) {
           getCurrentActivity().getContentResolver()
             .delete(Uri.parse(getContentURI(options)),
               "key = ?",
@@ -763,7 +763,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     }
 
     private void _updateDb(String key, String value, ReadableMap options) throws Exception {
-      if (options.hasKey("providerName")) {
+      if (getContentURI(options) != null) {
         ContentValues contentValues = new ContentValues();
         contentValues.put("value", value);
         contentValues.put("key", key);
@@ -790,18 +790,17 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
       }
     }
 
-    @NonNull
     private String getContentURI(ReadableMap options) {
-        String name = options.hasKey("providerName") ? options.getString("providerName") : "providerName";
-        if (name == null) {
-            name = "content://providerName/cte";
+        String name = options.hasKey("providerName") ? options.getString("providerName") : null;
+        if (name == null || name == "") {
+            return null;
         }
         return "content://" + name + "/cte";
     }
 
     private Map<String, String> rnCursorMap (ReadableMap options){
         Map<String,String> map = new HashMap<String,String>();
-        if (options.hasKey("providerName")) {
+        if (getContentURI(options) != null) {
             String contextURI = getContentURI(options);
             Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
             if (cursor != null) {
