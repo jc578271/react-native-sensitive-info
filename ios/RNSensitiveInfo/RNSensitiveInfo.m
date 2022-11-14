@@ -129,11 +129,12 @@ RCT_EXPORT_METHOD(setItem:(NSString*)key value:(NSString*)value options:(NSDicti
                                       sync, kSecAttrSynchronizable,
                                       key, kSecAttrAccount, nil];
 
+    NSMutableDictionary *query = [search mutableCopy];
+
     if ([RCTConvert BOOL:accessGroup]) {
-        [query setValue:accessGroup forKey:(NSString *)kSecAttrAccessGroup];
+      [query setValue:accessGroup forKey:(NSString *)kSecAttrAccessGroup];
     }
 
-    NSMutableDictionary *query = [search mutableCopy];
     [query setValue: valueData forKey: kSecValueData];
 
     if([RCTConvert BOOL:options[@"touchID"]]){
