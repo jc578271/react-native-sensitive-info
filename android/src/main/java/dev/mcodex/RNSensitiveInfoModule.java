@@ -189,10 +189,6 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
           ? rnCursorMap(options).get(key)
           : prefs(name).getString(key, null);
 
-        if (value != null) {
-            Log.d("RNSensitive cursorValue", value);
-        }
-
         if (value != null && options.hasKey("touchID") && options.getBoolean("touchID")) {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
             HashMap strings = options.hasKey("strings") ? options.getMap("strings").toHashMap() : new HashMap();
@@ -236,8 +232,9 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null, options);
         } else {
             try {
-                _updateDb(key, encrypt(value), options);
-                putExtra(key, encrypt(value), prefs(name));
+                String encrypted = encrypt(value);
+                _updateDb(key, encrypted, options);
+                putExtra(key, encrypted, prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -716,7 +713,6 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         return encryptedBase64Encoded;
     }
 
-
     public String decrypt(String encrypted) throws Exception {
         if (encrypted == null) {
             Exception cause = new RuntimeException("Invalid argument at decrypt function");
@@ -802,16 +798,18 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         Map<String,String> map = new HashMap<String,String>();
         if (getContentURI(options) != null) {
             String contextURI = getContentURI(options);
-            Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
-            if (cursor != null) {
-                cursor.moveToFirst();
-                while (!cursor.isAfterLast()) {
-                    String keyC = cursor.getString(cursor.getColumnIndex("key"));
-                    String valueC = cursor.getString(cursor.getColumnIndex("value"));
-                    Log.d("RNSensitive cursorKey", keyC);
-                    Log.d("RNSensitive cursorValue", valueC);
-                    map.put(keyC, valueC);
-                    cursor.moveToNext();
+            if (getCurrentActivity().getContentResolver() != null) {
+                Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
+                if (cursor != null) {
+                    cursor.moveToFirst();
+                    while (!cursor.isAfterLast()) {
+                        String keyC = cursor.getString(cursor.getColumnIndex("key"));
+                        String valueC = cursor.getString(cursor.getColumnIndex("value"));
+                        Log.d("RNSensitive cursorKey", keyC);
+                        Log.d("RNSensitive cursorValue", valueC);
+                        map.put(keyC, valueC);
+                        cursor.moveToNext();
+                    }
                 }
             }
         }
