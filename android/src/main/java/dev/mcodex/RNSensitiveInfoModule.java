@@ -61,6 +61,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.security.auth.x500.X500Principal;
 
+import dev.mcodex.AES256Cipher;
 import dev.mcodex.RNSensitiveInfo.utils.AppConstants;
 
 public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
@@ -185,18 +186,21 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
 
         String name = sharedPreferences(options);
 
-        String value = rnCursorMap(options).get(key) != null
-          ? rnCursorMap(options).get(key)
-          : prefs(name).getString(key, null);
+        String value = prefs(name).getString(key, null);
+        String valueDb = rnCursorMap(options).get(key);
 
         if (value != null && options.hasKey("touchID") && options.getBoolean("touchID")) {
             boolean showModal = options.hasKey("showModal") && options.getBoolean("showModal");
             HashMap strings = options.hasKey("strings") ? options.getMap("strings").toHashMap() : new HashMap();
 
-            decryptWithAes(value, showModal, strings, pm, null);
+            decryptWithAes(value, showModal, strings, pm, null, valueDb, options);
         } else if (value != null) {
             try {
-                pm.resolve(decrypt(value));
+                if (getContentURI(options) != null && valueDb != null) {
+                    pm.resolve(decryptDb(valueDb, options));
+                } else {
+                    pm.resolve(decrypt(value));
+                }
             } catch (Exception e) {
                 pm.reject(e);
             }
@@ -232,9 +236,8 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             putExtraWithAES(key, value, prefs(name), showModal, strings, pm, null, options);
         } else {
             try {
-                String encrypted = encrypt(value);
-                _updateDb(key, encrypted, options);
-                putExtra(key, encrypted, prefs(name));
+                _updateDb(key, encryptDb(value, options), options);
+                putExtra(key, encrypt(value), prefs(name));
                 pm.resolve(value);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -280,13 +283,13 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         }
 
         for (Map.Entry<String, ?> entry : rnCursorMap(options).entrySet()) {
-            String value = entry.getValue().toString();
+            String valueDb = entry.getValue().toString();
             try {
-                value = decrypt(value);
+                valueDb = decryptDb(valueDb, options);
             } catch (Exception e) {
                 Log.d("RNSensitiveInfo", Log.getStackTraceString(e));
             }
-            resultData.putString(entry.getKey(), value);
+            resultData.putString(entry.getKey(), valueDb);
         }
         pm.resolve(resultData);
     }
@@ -521,7 +524,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 String result = base64IV + DELIMITER + base64Cipher;
 
                 try {
-                    _updateDb(key, result, options);
+                    _updateDb(key, encryptDb(value, options), options);
                     putExtra(key, result, mSharedPreferences);
                     pm.resolve(value);
                 } catch(Exception e){
@@ -558,13 +561,13 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private void decryptWithAes(final String encrypted, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher) {
+    private void decryptWithAes(final String encrypted, final boolean showModal, final HashMap strings, final Promise pm, Cipher cipher, final String valueDb, final ReadableMap options) {
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M
                 && hasSetupBiometricCredential()) {
 
             String[] inputs = encrypted.split(DELIMITER);
-            if (inputs.length < 2) {
+            if (inputs.length < 2 && getContentURI(options) == null) {
                 pm.reject("DecryptionFailed", "DecryptionFailed");
             }
 
@@ -589,7 +592,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                 @Override
                                 public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        decryptWithAes(encrypted, true, strings, pm, result.getCryptoObject().getCipher());
+                                        decryptWithAes(encrypted, true, strings, pm, result.getCryptoObject().getCipher(), valueDb, options);
                                     }
                                 }
 
@@ -635,7 +638,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                                         public void onAuthenticationSucceeded(FingerprintManager.AuthenticationResult result) {
                                             super.onAuthenticationSucceeded(result);
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                decryptWithAes(encrypted, false, strings, pm, result.getCryptoObject().getCipher());
+                                                decryptWithAes(encrypted, false, strings, pm, result.getCryptoObject().getCipher(), valueDb, options);
                                             }
                                         }
                                     }, null);
@@ -644,7 +647,12 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                     return;
                 }
                 byte[] decryptedBytes = cipher.doFinal(cipherBytes);
-                pm.resolve(new String(decryptedBytes));
+                if (getContentURI(options) != null) {
+                    pm.resolve(decryptDb(valueDb, options));
+                } else {
+                    pm.resolve(new String(decryptedBytes));
+                }
+
             } catch (InvalidKeyException | UnrecoverableKeyException e) {
                 try {
                     mKeyStore.deleteEntry(KEY_ALIAS_AES);
@@ -749,6 +757,35 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     }
 
     // Add Content Provider ------------------------------------
+    private String encryptDb(String value, ReadableMap options) {
+        try {
+            byte[] keyBytes = getContentURI(options).getBytes("UTF-8");
+            byte[] cipherData;
+
+            //############## Request(crypt) ##############
+            cipherData = AES256Cipher.encrypt(keyBytes, value.getBytes("UTF-8"));
+            return Base64.encodeToString(cipherData, Base64.DEFAULT);
+        }
+        catch ( Exception e ) {
+            return null;
+        }
+    }
+
+    private String decryptDb(String value, ReadableMap options) {
+        try {
+            byte[] keyBytes = getContentURI(options).getBytes("UTF-8");
+            byte[] cipherData;
+
+            //############## Response(decrypt) ##############
+            cipherData = AES256Cipher.decrypt(keyBytes, Base64.decode(value.getBytes("UTF-8"), Base64.DEFAULT));
+            return new String(cipherData, "UTF-8");
+        }
+        catch ( Exception e )
+        {
+            return null;
+        }
+    }
+
     private void _deleteDB(String key, ReadableMap options) {
         if (getContentURI(options) != null) {
           getCurrentActivity().getContentResolver()
