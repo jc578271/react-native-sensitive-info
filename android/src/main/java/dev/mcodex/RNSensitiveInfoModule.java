@@ -205,7 +205,11 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
                 pm.reject(e);
             }
         } else {
-            pm.resolve(value);
+            if (getContentURI(options) != null && valueDb != null) {
+                pm.resolve(decryptDb(valueDb, options));
+            } else {
+                pm.resolve(value);
+            }
         }
     }
 
@@ -759,7 +763,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
     // Add Content Provider ------------------------------------
     private String encryptDb(String value, ReadableMap options) {
         try {
-            byte[] keyBytes = getContentURI(options).getBytes("UTF-8");
+            byte[] keyBytes = getKey(options).getBytes("UTF-8");
             byte[] cipherData;
 
             //############## Request(crypt) ##############
@@ -767,22 +771,21 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             return Base64.encodeToString(cipherData, Base64.DEFAULT);
         }
         catch ( Exception e ) {
-            return null;
+            return e.getMessage();
         }
     }
 
     private String decryptDb(String value, ReadableMap options) {
         try {
-            byte[] keyBytes = getContentURI(options).getBytes("UTF-8");
+            byte[] keyBytes = getKey(options).getBytes("UTF-8");
             byte[] cipherData;
 
             //############## Response(decrypt) ##############
             cipherData = AES256Cipher.decrypt(keyBytes, Base64.decode(value.getBytes("UTF-8"), Base64.DEFAULT));
             return new String(cipherData, "UTF-8");
         }
-        catch ( Exception e )
-        {
-            return null;
+        catch ( Exception e ) {
+            return e.getMessage();
         }
     }
 
@@ -829,6 +832,14 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
             return null;
         }
         return "content://" + name + "/cte";
+    }
+
+    private String getKey(ReadableMap options) {
+        String name = options.hasKey("providerName") ? options.getString("providerName") : null;
+        if (name == null || name == "") {
+            return "providerName";
+        }
+        return  name.substring(0, 16);
     }
 
     private Map<String, String> rnCursorMap (ReadableMap options){
