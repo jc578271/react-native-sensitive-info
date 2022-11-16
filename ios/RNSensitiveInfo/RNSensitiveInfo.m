@@ -179,7 +179,7 @@ RCT_EXPORT_METHOD(getItem:(NSString *)key options:(NSDictionary *)options resolv
 
     NSString * accessGroup = [RCTConvert NSString:options[@"accessGroup"]];
     if (accessGroup == NULL) {
-        accessGroup = @"";
+        accessGroup = @"app";
     }
 
     // Create dictionary of search parameters
@@ -378,7 +378,7 @@ RCT_EXPORT_METHOD(deleteItem:(NSString *)key options:(NSDictionary *)options res
 
     NSString * accessGroup = [RCTConvert NSString:options[@"accessGroup"]];
     if (accessGroup == NULL) {
-        accessGroup = @"";
+        accessGroup = @"app";
     }
 
     NSNumber *sync = options[@"kSecAttrSynchronizable"];
