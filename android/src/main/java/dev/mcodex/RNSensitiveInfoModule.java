@@ -846,7 +846,7 @@ public class RNSensitiveInfoModule extends ReactContextBaseJavaModule {
         Map<String,String> map = new HashMap<String,String>();
         if (getContentURI(options) != null) {
             String contextURI = getContentURI(options);
-            if (getCurrentActivity().getContentResolver() != null) {
+            if (getCurrentActivity() != null && getCurrentActivity().getContentResolver() != null) {
                 Cursor cursor = getCurrentActivity().getContentResolver().query(Uri.parse(contextURI), null, null, null, null);
                 if (cursor != null) {
                     cursor.moveToFirst();
