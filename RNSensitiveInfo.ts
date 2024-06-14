@@ -2,8 +2,9 @@ import { NativeModules } from 'react-native';
 
 const { RNSensitiveInfo } = NativeModules;
 
-export default {
-  ...RNSensitiveInfo,
+export default RNSensitiveInfo;
+// {
+//   ...RNSensitiveInfo,
   // setInvalidatedByBiometricEnrollment(
   //   invalidatedByBiometricEnrollment
   // ): Function {
@@ -22,4 +23,4 @@ export default {
 
   //   return RNSensitiveInfo.cancelFingerprintAuth();
   // },
-};
+// };

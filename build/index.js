@@ -31,7 +31,8 @@ var __assign = function() {
 };
 
 var RNSensitiveInfo = reactNative.NativeModules.RNSensitiveInfo;
-var RNSensitiveInfo$1 = __assign({}, RNSensitiveInfo);
+// var RNSensitiveInfo$1 = __assign({}, RNSensitiveInfo);
 
-exports["default"] = RNSensitiveInfo$1;
+exports["default"] = RNSensitiveInfo;
+// exports["default"] = RNSensitiveInfo$1;
 //# sourceMappingURL=index.js.map

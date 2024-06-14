@@ -27,7 +27,8 @@ var __assign = function() {
 };
 
 var RNSensitiveInfo = NativeModules.RNSensitiveInfo;
-var RNSensitiveInfo$1 = __assign({}, RNSensitiveInfo);
+// var RNSensitiveInfo$1 = __assign({}, RNSensitiveInfo);
 
-export { RNSensitiveInfo$1 as default };
+export default RNSensitiveInfo;
+// export { RNSensitiveInfo$1 as default };
 //# sourceMappingURL=index.es.js.map
