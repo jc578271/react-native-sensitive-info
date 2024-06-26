@@ -1,14 +1,8 @@
 import { NativeModules } from 'react-native';
-import {IRNSensitiveInfo} from "./types";
 
 const { RNSensitiveInfo } = NativeModules;
 
-export * from "./types";
-export default RNSensitiveInfo as IRNSensitiveInfo;
-
-
-
-
+export default RNSensitiveInfo;
 // {
 //   ...RNSensitiveInfo,
   // setInvalidatedByBiometricEnrollment(
